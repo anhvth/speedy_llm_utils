@@ -44,7 +44,7 @@ class ChatSession:
         return len(self.history)
 
     def __call__(
-        self, text, response_format=None, display=True, max_prev_turns=3,**kwargs
+        self, text, response_format=None, display=True, max_prev_turns=3, **kwargs
     ) -> str | BaseModel:
         response_format = response_format or self.response_format
         self.history.append({"role": "user", "content": text})
@@ -198,14 +198,14 @@ class OAI_LM(dspy.LM):
         model: str = None,
         model_type: Literal["chat", "text"] = "chat",
         temperature: float = 0.0,
-        max_tokens: int = 1000,
+        max_tokens: int = 2048,
         cache: bool = True,
         callbacks: Optional[Any] = None,
         num_retries: int = 3,
         provider=None,
         finetuning_model: Optional[str] = None,
         launch_kwargs: Optional[dict[str, Any]] = None,
-        host='localhost',
+        host="localhost",
         port=None,
         ports=None,
         api_key=None,
@@ -249,7 +249,7 @@ class OAI_LM(dspy.LM):
 
     @property
     def last_message(self):
-        return self.history[-1]['response'].model_dump()['choices'][0]['message']
+        return self.history[-1]["response"].model_dump()["choices"][0]["message"]
 
     def __call__(
         self,
@@ -304,7 +304,9 @@ class OAI_LM(dspy.LM):
                 kwargs["base_url"] = f"http://{self.host}:{port}/v1"
             try:
                 if must_load_cache:
-                    raise ValueError("Expected to load from cache but got None, maybe previous call failed so it didn't save to cache")
+                    raise ValueError(
+                        "Expected to load from cache but got None, maybe previous call failed so it didn't save to cache"
+                    )
                 result = super().__call__(
                     prompt=prompt,
                     messages=messages,
@@ -337,6 +339,7 @@ class OAI_LM(dspy.LM):
             self.dump_cache(id, result)
         if response_format:
             import json_repair
+
             try:
                 return response_format(**json_repair.loads(result))
             except Exception as e:
@@ -418,6 +421,7 @@ class OAI_LM(dspy.LM):
         return openai.OpenAI(
             base_url=self.kwargs["base_url"], api_key=os.getenv("OPENAI_API_KEY", "abc")
         )
+
     @classmethod
     def get_deepseek_chat(self, api_key=None, max_tokens=2000, **kwargs):
         return OAI_LM(
@@ -426,7 +430,8 @@ class OAI_LM(dspy.LM):
             api_key=api_key or os.environ["DEEPSEEK_API_KEY"],
             max_tokens=max_tokens,
             **kwargs,
-            )
+        )
+
     @classmethod
     def get_deepseek_reasoner(self, api_key=None, max_tokens=2000, **kwargs):
         return OAI_LM(
@@ -436,5 +441,3 @@ class OAI_LM(dspy.LM):
             max_tokens=max_tokens,
             **kwargs,
         )
-    
-
