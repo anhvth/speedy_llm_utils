@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Assert that the current branch is 'main'
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+    echo "Error: You are not on the 'main' branch. Please switch to the 'main' branch before running this script."
+    exit 1
+fi
+
 # Get the current version before making any changes
 CURRENT_VERSION=$(bump2version --dry-run --allow-dirty --list patch | grep current_version | cut -d'=' -f2 | xargs)
 NEW_VERSION=$(bump2version --dry-run --allow-dirty --list patch | grep new_version | cut -d'=' -f2 | xargs)
