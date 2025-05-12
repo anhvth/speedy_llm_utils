@@ -1,13 +1,7 @@
-[build-system]
-requires = ["setuptools >= 64"]
-build-backend = "setuptools.build_meta"
 
-[project]
-name = "llm_utils"
-version = "0.1.0"
-authors = [
-    {name = "Anh Vo"}
-]
+[tool.poetry]
+name = "speedy_llm_utils" # This is package name
+version = "1.1.10"
 description = "Utility functions for LLM applications"
 requires-python = ">3.5,<4.0"
 dependencies = [

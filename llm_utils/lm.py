@@ -2,15 +2,13 @@ import fcntl
 import os
 import random
 import tempfile
-import threading
-import time
 from copy import deepcopy
+import time
 from typing import Any, List, Literal, Optional, TypedDict
 
-import dspy
-import litellm
-from loguru import logger
+
 import numpy as np
+from loguru import logger
 from pydantic import BaseModel
 from speedy_utils import dump_json_or_pickle, identify_uuid, load_json_or_pickle
 
@@ -68,6 +66,13 @@ class ChatSession:
         if self.callback:
             self.callback(self, output)
         return output
+
+    def send_message(self, text, **kwargs):
+        """
+        Wrapper around __call__ method for sending messages.
+        This maintains compatibility with the test suite.
+        """
+        return self.__call__(text, **kwargs)
 
     def parse_history(self, indent=None):
         parsed_history = []
@@ -195,7 +200,7 @@ def _pick_least_used_port(ports: List[int]) -> int:
     return lsp
 
 
-class OAI_LM(dspy.LM):
+class OAI_LM:
     """
     A language model supporting chat or text completion requests for use with DSPy modules.
     """
@@ -205,7 +210,11 @@ class OAI_LM(dspy.LM):
         model: str = None,
         model_type: Literal["chat", "text"] = "chat",
         temperature: float = 0.0,
+<<<<<<< HEAD
         max_tokens: int = 2048,
+=======
+        max_tokens: int = 2000,
+>>>>>>> main
         cache: bool = True,
         callbacks: Optional[Any] = None,
         num_retries: int = 3,
@@ -218,6 +227,8 @@ class OAI_LM(dspy.LM):
         api_key=None,
         **kwargs,
     ):
+        # Lazy import dspy
+        import dspy
 
         self.ports = ports
         self.host = host
@@ -226,19 +237,29 @@ class OAI_LM(dspy.LM):
 
         if port is not None:
             kwargs["base_url"] = f"http://{host}:{port}/v1"
-            # if not os.environ.get("OPENAI_API_KEY"):
-            #     os.environ["OPENAI_API_KEY"] = "abc"
             self.base_url = kwargs["base_url"]
 
         if model is None:
-            model = self.list_models(kwargs.get("base_url"))[0]
-            model = f"openai/{model}"
-            logger.info(f"Using default model: {model}")
+            try:
+                model = self.list_models(kwargs.get("base_url"))[0]
+                model = f"openai/{model}"
+                logger.info(f"Using default model: {model}")
+            except Exception as e:
+                example_cmd = (
+                    "LM.start_server('unsloth/gemma-3-1b-it')\n"
+                    "# Or manually run: svllm serve --model unsloth/gemma-3-1b-it --gpus 0 -hp localhost:9150"
+                )
+                logger.error(
+                    f"Failed to initialize dspy.LM: {e}\n"
+                    f"Make sure your model server is running and accessible.\n"
+                    f"Example to start a server:\n{example_cmd}"
+                )
+        assert model is not None, "Model name must be provided"
 
         if not model.startswith("openai/"):
             model = f"openai/{model}"
 
-        super().__init__(
+        self._dspy_lm: dspy.LM = dspy.LM(
             model=model,
             model_type=model_type,
             temperature=temperature,
@@ -252,11 +273,21 @@ class OAI_LM(dspy.LM):
             api_key=api_key or os.getenv("OPENAI_API_KEY", "abc"),
             **kwargs,
         )
+        # Store the kwargs for later use
+        self.kwargs = self._dspy_lm.kwargs
+        self.model = self._dspy_lm.model
+
         self.do_cache = cache
 
     @property
     def last_message(self):
+<<<<<<< HEAD
         return self.history[-1]["response"].model_dump()["choices"][0]["message"]
+=======
+        return self._dspy_lm.history[-1]["response"].model_dump()["choices"][0][
+            "message"
+        ]
+>>>>>>> main
 
     def __call__(
         self,
@@ -269,9 +300,16 @@ class OAI_LM(dspy.LM):
         error=None,
         use_loadbalance=None,
         must_load_cache=False,
+        max_tokens=None,
+        num_retries=10,
         **kwargs,
     ) -> str | BaseModel:
+<<<<<<< HEAD
         if retry_count > self.kwargs.get("num_retries", 3):
+=======
+        if retry_count > num_retries:
+            # raise ValueError("Retry limit exceeded")
+>>>>>>> main
             logger.error(f"Retry limit exceeded, error: {error}, {self.base_url=}")
             raise error
         if retry_count > 0:
@@ -279,9 +317,12 @@ class OAI_LM(dspy.LM):
                 f"Retrying {retry_count} times, error: {error}, {self.base_url=}"
             )
         # have multiple ports, and port is not specified
-
+        if not kwargs:
+            kwargs = self.kwargs
         id = None
-        cache = cache if cache is not None else self.do_cache
+        cache = cache or self.do_cache
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
         if response_format:
             assert issubclass(
                 response_format, BaseModel
@@ -303,6 +344,8 @@ class OAI_LM(dspy.LM):
             id = identify_uuid(s)
             result = self.load_cache(id)
         if not result:
+            import litellm
+
             if self.ports and not port:
                 if use_loadbalance:
 
@@ -312,12 +355,18 @@ class OAI_LM(dspy.LM):
 
             if port:
                 kwargs["base_url"] = f"http://{self.host}:{port}/v1"
+
             try:
                 if must_load_cache:
                     raise ValueError(
                         "Expected to load from cache but got None, maybe previous call failed so it didn't save to cache"
                     )
+<<<<<<< HEAD
                 result = super().__call__(
+=======
+                # Use the _dspy_lm instance instead of super()
+                result = self._dspy_lm(
+>>>>>>> main
                     prompt=prompt,
                     messages=messages,
                     **kwargs,
@@ -328,6 +377,30 @@ class OAI_LM(dspy.LM):
             except litellm.exceptions.ContextWindowExceededError as e:
                 logger.error(f"Context window exceeded: {e}")
             except litellm.exceptions.APIError as e:
+                t = 3
+                base_url = kwargs["base_url"]
+                if retry_count > 0:
+                    logger.warning(
+                        f"[{base_url=}] API error: {str(e)[:100]}, will sleep for {t}s and retry"
+                    )
+                time.sleep(t)
+                return self.__call__(
+                    prompt=prompt,
+                    messages=messages,
+                    response_format=response_format,
+                    cache=cache,
+                    retry_count=retry_count + 1,
+                    port=port,
+                    error=e,
+                    **kwargs,
+                )
+            except litellm.exceptions.Timeout as e:
+                t = 3
+                if retry_count > 0:
+                    logger.warning(
+                        f"Timeout error: {str(e)[:100]}, will sleep for {t} seconds and retry"
+                    )
+                time.sleep(t)
                 return self.__call__(
                     prompt=prompt,
                     messages=messages,
@@ -340,6 +413,9 @@ class OAI_LM(dspy.LM):
                 )
             except Exception as e:
                 logger.error(f"Error: {e}")
+                import traceback
+
+                traceback.print_exc()
                 raise
             finally:
                 if port and use_loadbalance:
@@ -432,6 +508,21 @@ class OAI_LM(dspy.LM):
             base_url=self.kwargs["base_url"], api_key=os.getenv("OPENAI_API_KEY", "abc")
         )
 
+<<<<<<< HEAD
+=======
+    def __getattr__(self, name):
+        """
+        Delegate any attributes not found in OAI_LM to the underlying dspy.LM instance.
+        This makes sure any dspy.LM methods not explicitly defined in OAI_LM are still accessible.
+        """
+        # Check __dict__ directly to avoid recursion via hasattr
+        if "_dspy_lm" in self.__dict__ and hasattr(self._dspy_lm, name):
+            return getattr(self._dspy_lm, name)
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
+
+>>>>>>> main
     @classmethod
     def get_deepseek_chat(self, api_key=None, max_tokens=2000, **kwargs):
         return OAI_LM(
@@ -451,3 +542,34 @@ class OAI_LM(dspy.LM):
             max_tokens=max_tokens,
             **kwargs,
         )
+<<<<<<< HEAD
+=======
+
+    @staticmethod
+    def start_server(model_name, gpus="4567", port=9150, eager=True):
+        cmd = f"svllm serve --model {model_name} --gpus {gpus} -hp localhost:{port}"
+        if eager:
+            cmd += " --eager"
+        session_name = f"vllm_{port}"
+        is_session_exists = os.system(f"tmux has-session -t {session_name}")
+        logger.info(f"Starting server with command: {cmd}")
+        if is_session_exists == 0:
+            logger.warning(
+                f"Session {session_name} exists, please kill it before running the script"
+            )
+            # as user if they want to kill the session
+            user_input = input(
+                f"Session {session_name} exists, do you want to kill it? (y/n): "
+            )
+            if user_input.lower() == "y":
+                os.system(f"tmux kill-session -t {session_name}")
+                logger.info(f"Session {session_name} killed")
+        os.system(cmd)
+        # return subprocess.Popen(shlex.split(cmd))
+
+    # set get_agent is get_session
+    get_agent = get_session
+
+
+LM = OAI_LM
+>>>>>>> main

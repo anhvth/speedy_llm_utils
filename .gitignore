@@ -133,3 +133,4 @@ cython_debug/
 # VS Code
 .vscode/
 .history/Ø
+openai_example_batch.jsonl

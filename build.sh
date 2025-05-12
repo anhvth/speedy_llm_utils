@@ -1,22 +1,39 @@
 #!/bin/bash
 
-# Exit on error
-set -e
+# Get the current version before making any changes
+CURRENT_VERSION=$(bump2version --dry-run --allow-dirty --list patch | grep current_version | cut -d'=' -f2 | xargs)
+NEW_VERSION=$(bump2version --dry-run --allow-dirty --list patch | grep new_version | cut -d'=' -f2 | xargs)
 
-# Stage current changes
-git add -A
-git commit -m "Pre-version bump commit" || true
+echo "Attempting to bump version from $CURRENT_VERSION to $NEW_VERSION..."
 
-# Ensure the working directory is clean
-git diff-index --quiet HEAD --
+# Check if working directory has uncommitted changes
+if [ -n "$(git status --porcelain)" ]; then
+    echo "Git working directory is not clean. Please commit or stash your changes first."
+    echo "Changes detected:"
+    git status --short
+    
+    # Ask user if they want to commit these changes
+    read -p "Do you want to commit these changes now? (y/n): " choice
+    if [[ "$choice" == [Yy]* ]]; then
+        echo "Committing pending changes..."
+        read -p "Enter a commit message: " commit_message
+        if [ -z "$commit_message" ]; then
+            echo "No commit message entered. Aborting."
+            exit 1
+        fi
+        git add -A && git commit -m "$commit_message" || { echo "Commit failed"; exit 1; }
+    else
+        echo "Aborting version bump. Please clean your working directory first."
+        exit 1
+    fi
+fi
 
-# Bump version
-bump2version patch --allow-dirty
+# Now bump the version (requires clean working directory)
+if ! bump2version patch; then
+    echo "Error: bump2version failed"
+    exit 1
+fi
 
-# Build and install
-pip install .
 
-# Commit version bump
-git add -A
-git commit -m "Bump version to $(bump2version --allow-dirty --dry-run --list patch | grep new_version | sed -r s,"^.*=",,)"
+git add -A && git commit -m "Bumped version to $NEW_VERSION" || { echo "Commit failed"; exit 1; }
 git push

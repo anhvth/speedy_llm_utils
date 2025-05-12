@@ -14,7 +14,7 @@ LOAD_BALANCER_PORT = 8008
 SCAN_TARGET_HOST = 'localhost'
 SCAN_PORT_START = 8150
 SCAN_PORT_END = 8170 # Inclusive
-SCAN_INTERVAL = 10
+SCAN_INTERVAL = 30
 # Timeout applies to the HTTP health check request now
 HEALTH_CHECK_TIMEOUT = 2.0 # Increased slightly for HTTP requests
 
@@ -106,7 +106,7 @@ async def check_server_health(session, host, port):
 async def scan_and_update_servers():
     """Periodically scans ports using HTTP /health check and updates available servers."""
     global available_servers
-    logging.info(f"Starting server scan task (HTTP GET /health on Ports {SCAN_PORT_START}-{SCAN_PORT_END} every {SCAN_INTERVAL}s)")
+    logging.debug(f"Starting server scan task (HTTP GET /health on Ports {SCAN_PORT_START}-{SCAN_PORT_END} every {SCAN_INTERVAL}s)")
     while True:
         try:
             current_scan_results = []

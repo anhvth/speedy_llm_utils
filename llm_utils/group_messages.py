@@ -3,7 +3,6 @@ import random
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
-from transformers import AutoTokenizer
 
 from speedy_utils import multi_thread
 
@@ -75,7 +74,7 @@ def group_messages_by_len(
     """
     if messages is None:
         raise ValueError("messages parameter cannot be None")
-
+    from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def create_batches(messages):
@@ -111,3 +110,8 @@ def group_messages_by_len(
 
     chunked_messages = create_batches(messages)
     return chunked_messages
+
+__all__ = [
+    "split_indices_by_length",
+    "group_messages_by_len",
+]
