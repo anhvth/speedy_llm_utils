@@ -5,7 +5,7 @@ from typing import Dict, Set, Tuple, Union, Any, Type
 from tabulate import tabulate
 
 
-class LLM_Classifier(OAI_LM):
+class LMClassifier(OAI_LM):
     """Pydantic wrapper for language models that handles structured data conversion."""
 
     def __init__(
@@ -80,7 +80,7 @@ class LLM_Classifier(OAI_LM):
     @classmethod
     def from_sharegpt_file(
         cls, file_path: str, model: str = None, port: int = 8165
-    ) -> "LLM_Classifier":
+    ) -> "LMClassifier":
         """Create an LLM_Classifier instance from a ShareGPT file."""
         return initialize_lm_from_sample(file_path, model=model, port=port)
 
@@ -104,7 +104,7 @@ def _build_pydantic_models(
 
 def initialize_lm_from_sample(
     sample_path: str, model: str = None, port: int = 8165
-) -> LLM_Classifier:
+) -> LMClassifier:
     """Create an LMPydantic instance from a sample conversation file.
 
     Args:
@@ -136,7 +136,7 @@ def initialize_lm_from_sample(
     # Build models and LM instance
     InputModel, OutputModel = _build_pydantic_models(input_fields, output_fields)
 
-    return LLM_Classifier(
+    return LMClassifier(
         system_prompt,
         InputModel,
         OutputModel,

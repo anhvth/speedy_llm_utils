@@ -210,11 +210,7 @@ class OAI_LM:
         model: str = None,
         model_type: Literal["chat", "text"] = "chat",
         temperature: float = 0.0,
-<<<<<<< HEAD
         max_tokens: int = 2048,
-=======
-        max_tokens: int = 2000,
->>>>>>> main
         cache: bool = True,
         callbacks: Optional[Any] = None,
         num_retries: int = 3,
@@ -281,13 +277,7 @@ class OAI_LM:
 
     @property
     def last_message(self):
-<<<<<<< HEAD
         return self.history[-1]["response"].model_dump()["choices"][0]["message"]
-=======
-        return self._dspy_lm.history[-1]["response"].model_dump()["choices"][0][
-            "message"
-        ]
->>>>>>> main
 
     def __call__(
         self,
@@ -304,12 +294,7 @@ class OAI_LM:
         num_retries=10,
         **kwargs,
     ) -> str | BaseModel:
-<<<<<<< HEAD
         if retry_count > self.kwargs.get("num_retries", 3):
-=======
-        if retry_count > num_retries:
-            # raise ValueError("Retry limit exceeded")
->>>>>>> main
             logger.error(f"Retry limit exceeded, error: {error}, {self.base_url=}")
             raise error
         if retry_count > 0:
@@ -361,12 +346,7 @@ class OAI_LM:
                     raise ValueError(
                         "Expected to load from cache but got None, maybe previous call failed so it didn't save to cache"
                     )
-<<<<<<< HEAD
                 result = super().__call__(
-=======
-                # Use the _dspy_lm instance instead of super()
-                result = self._dspy_lm(
->>>>>>> main
                     prompt=prompt,
                     messages=messages,
                     **kwargs,
@@ -508,21 +488,6 @@ class OAI_LM:
             base_url=self.kwargs["base_url"], api_key=os.getenv("OPENAI_API_KEY", "abc")
         )
 
-<<<<<<< HEAD
-=======
-    def __getattr__(self, name):
-        """
-        Delegate any attributes not found in OAI_LM to the underlying dspy.LM instance.
-        This makes sure any dspy.LM methods not explicitly defined in OAI_LM are still accessible.
-        """
-        # Check __dict__ directly to avoid recursion via hasattr
-        if "_dspy_lm" in self.__dict__ and hasattr(self._dspy_lm, name):
-            return getattr(self._dspy_lm, name)
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
-        )
-
->>>>>>> main
     @classmethod
     def get_deepseek_chat(self, api_key=None, max_tokens=2000, **kwargs):
         return OAI_LM(
@@ -542,34 +507,3 @@ class OAI_LM:
             max_tokens=max_tokens,
             **kwargs,
         )
-<<<<<<< HEAD
-=======
-
-    @staticmethod
-    def start_server(model_name, gpus="4567", port=9150, eager=True):
-        cmd = f"svllm serve --model {model_name} --gpus {gpus} -hp localhost:{port}"
-        if eager:
-            cmd += " --eager"
-        session_name = f"vllm_{port}"
-        is_session_exists = os.system(f"tmux has-session -t {session_name}")
-        logger.info(f"Starting server with command: {cmd}")
-        if is_session_exists == 0:
-            logger.warning(
-                f"Session {session_name} exists, please kill it before running the script"
-            )
-            # as user if they want to kill the session
-            user_input = input(
-                f"Session {session_name} exists, do you want to kill it? (y/n): "
-            )
-            if user_input.lower() == "y":
-                os.system(f"tmux kill-session -t {session_name}")
-                logger.info(f"Session {session_name} killed")
-        os.system(cmd)
-        # return subprocess.Popen(shlex.split(cmd))
-
-    # set get_agent is get_session
-    get_agent = get_session
-
-
-LM = OAI_LM
->>>>>>> main
