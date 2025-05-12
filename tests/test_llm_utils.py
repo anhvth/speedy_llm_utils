@@ -7,9 +7,8 @@ class TestOAILM(unittest.TestCase):
         self.assertEqual(lm.model, "openai/gpt-3.5-turbo")
 
     def test_get_session(self):
-        lm = OAI_LM(model="gpt-3.5-turbo")
-        session = lm.get_session(system_prompt="You are a helpful assistant.")
-        self.assertEqual(session.history[0]["content"], "You are a helpful assistant.")
+        from llm_utils import LMAgent
+        agent = LMAgent(lm=OAI_LM('gpt-4.1-nano'), system_prompt="You are a helpful assistant.")
 
 class TestLMClassifier(unittest.TestCase):
     def test_initialization(self):

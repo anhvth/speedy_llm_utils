@@ -1,6 +1,6 @@
 from typing import Any
 from pydantic import BaseModel
-from llm_utils import OAI_LM
+from .oai_lm import OAI_LM
 from typing import List, Union, Tuple
 
 def build_pydantic_response_model_from_string(keys: List[Union[str, Tuple[str, str]]]) -> type[BaseModel]:
