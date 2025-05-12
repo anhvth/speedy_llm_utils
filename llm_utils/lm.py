@@ -28,8 +28,10 @@ class ChatSession:
         history: List[Message] = [],
         callback=None,
         response_format=None,
+        multi_turn_agent=False,
     ):
         self.lm = deepcopy(lm)
+        self.multi_turn = multi_turn_agent
         self.history = history
         self.callback = callback
         self.response_format = response_format
@@ -44,19 +46,22 @@ class ChatSession:
         return len(self.history)
 
     def __call__(
-        self, text, response_format=None, display=True, max_prev_turns=3, **kwargs
+        self, text, response_format=None, display=False, max_prev_turns=3, **kwargs
     ) -> str | BaseModel:
         response_format = response_format or self.response_format
-        self.history.append({"role": "user", "content": text})
+        if self.multi_turn:
+            self.history.append({"role": "user", "content": text})
         output = self.lm(
             messages=self.parse_history(), response_format=response_format, **kwargs
         )
         # output could be a string or a pydantic model
         if isinstance(output, BaseModel):
-            self.history.append({"role": "assistant", "content": output})
+            if self.multi_turn:
+                self.history.append({"role": "assistant", "content": output})
         else:
             assert response_format is None
-            self.history.append({"role": "assistant", "content": output})
+            if self.multi_turn:
+                self.history.append({"role": "assistant", "content": output})
         if display:
             self.inspect_history(max_prev_turns=max_prev_turns)
 
@@ -91,6 +96,8 @@ class ChatSession:
             display_chat_messages_as_html(h[-max_prev_turns * 2 :])
         except:
             pass
+
+
 
 
 def _clear_port_use(ports):
@@ -265,9 +272,12 @@ class OAI_LM(dspy.LM):
         **kwargs,
     ) -> str | BaseModel:
         if retry_count > self.kwargs.get("num_retries", 3):
-            # raise ValueError("Retry limit exceeded")
             logger.error(f"Retry limit exceeded, error: {error}, {self.base_url=}")
             raise error
+        if retry_count > 0:
+            logger.warning(
+                f"Retrying {retry_count} times, error: {error}, {self.base_url=}"
+            )
         # have multiple ports, and port is not specified
 
         id = None
