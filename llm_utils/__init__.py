@@ -1,6 +1,6 @@
 # from .gemini import get_gemini_response
 from .chat_format import *
-from .lm import OAI_LM
+from .lm import OAI_LM, ChatSession
 from .lm_classifier import LMClassifier
 
 
