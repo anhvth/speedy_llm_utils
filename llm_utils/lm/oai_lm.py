@@ -299,27 +299,31 @@ class OAI_LM:
         port = least_used_port
         return port
 
-    # def get_session(
-    #     self,
-    #     system_prompt,
-    #     history: List[Message] = None,
-    #     callback=None,
-    #     response_format=None,
-    #     **kwargs,
-    # ) -> Any:
+    def get_session(
+        self,
+        system_prompt,
+        history: List[Message] = None,
+        callback=None,
+        response_format=None,
+        **kwargs,
+    ) -> Any:
+        raise DeprecationWarning(
+            "OAI_LM.get_session is deprecated. Use LMAgent instead."
+        )
         
-    #     if history is None:
-    #         history = []
-    #     else:
-    #         history = deepcopy(history)
-    #     return ChatSession(
-    #         self,
-    #         system_prompt=system_prompt,
-    #         history=history,
-    #         callback=callback,
-    #         response_format=response_format,
-    #         **kwargs,
-    #     )
+        if history is None:
+            history = []
+        else:
+            history = deepcopy(history)
+        from .chat_session import ChatSession
+        return ChatSession(
+            self,
+            system_prompt=system_prompt,
+            history=history,
+            callback=callback,
+            response_format=response_format,
+            **kwargs,
+        )
 
     def dump_cache(self, id, result):
         try:
