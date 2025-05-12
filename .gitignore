@@ -134,3 +134,4 @@ cython_debug/
 .vscode/
 .history/Ø
 openai_example_batch.jsonl
+.copilot
