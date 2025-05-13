@@ -24,8 +24,14 @@ from pydantic import BaseModel
 from speedy_utils import dump_json_or_pickle, identify_uuid, load_json_or_pickle
 
 from llm_utils.chat_format import get_conversation_one_turn
+
 # from llm_utils.chat_session import ChatSession
-from .port_utils import _clear_port_use, _atomic_save, _update_port_use, _pick_least_used_port
+from .port_utils import (
+    _clear_port_use,
+    _atomic_save,
+    _update_port_use,
+    _pick_least_used_port,
+)
 
 
 class Message(TypedDict):
@@ -136,67 +142,77 @@ class OAI_LM:
             logger.warning(
                 f"Retrying {retry_count} times, error: {error}, {self.base_url=}"
             )
-            
+
         # Prepare parameters
         kwargs = kwargs or self.kwargs
         cache = cache or self.do_cache
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
-        
+
         # Validate response format if provided
         if response_format:
             self._validate_response_format(response_format)
-        
+
         # Try to get from cache first
         cache_id = None
         result = None
         if cache:
-            cache_id = self._generate_cache_id(prompt, messages, response_format, kwargs)
+            cache_id = self._generate_cache_id(
+                prompt, messages, response_format, kwargs
+            )
             result = self.load_cache(cache_id)
-            
+
         # Make API call if not in cache or must_load_cache is set and failed
         if not result:
             if must_load_cache:
                 raise ValueError(
                     "Expected to load from cache but got None, maybe previous call failed so it didn't save to cache"
                 )
-                
+
             # Select a port for load balancing if needed
             api_port = self._select_port(port, use_loadbalance)
             if api_port:
                 kwargs["base_url"] = f"http://{self.host}:{api_port}/v1"
-                
+
             # Make the actual API call with error handling
             try:
                 result = self._make_api_call(prompt, messages, kwargs, response_format)
             except Exception as e:
                 # Handle different types of errors with retries
                 return self._handle_api_error(
-                    e, prompt, messages, response_format, cache, 
-                    retry_count, api_port, kwargs, use_loadbalance
+                    e,
+                    prompt,
+                    messages,
+                    response_format,
+                    cache,
+                    retry_count,
+                    api_port,
+                    kwargs,
+                    use_loadbalance,
                 )
             finally:
                 # Update port usage stats if load balancing was used
                 if api_port and use_loadbalance:
                     _update_port_use(api_port, -1)
-        
+
         # Save result to cache if enabled
         if self.do_cache and cache_id:
             self.dump_cache(cache_id, result)
-            
+
         # Format the response if needed
         if response_format:
-            return self._format_response(result, response_format, prompt, messages, 
-                                        cache, retry_count, kwargs)
-            
+            result = self._format_response(
+                result, response_format, prompt, messages, cache, retry_count, kwargs
+            )
+
         return result
-    
+
     def _validate_response_format(self, response_format):
         """Validate that the response format is a pydantic model."""
         assert issubclass(
             response_format, BaseModel
         ), f"response_format must be a pydantic model, {type(response_format)} provided"
-    
+
     def _generate_cache_id(self, prompt, messages, response_format, kwargs):
         """Generate a unique ID for caching based on input parameters."""
         _kwargs = {**self.kwargs, **kwargs}
@@ -211,7 +227,7 @@ class OAI_LM:
             ]
         )
         return identify_uuid(s)
-    
+
     def _select_port(self, port, use_loadbalance):
         """Select an appropriate port for the API call."""
         if self.ports and not port:
@@ -220,7 +236,7 @@ class OAI_LM:
             else:
                 return random.choice(self.ports)
         return port
-    
+
     def _make_api_call(self, prompt, messages, kwargs, response_format):
         """Make the actual API call to the language model."""
         result = self._dspy_lm(
@@ -232,17 +248,29 @@ class OAI_LM:
         if kwargs.get("n", 1) == 1:
             result = result[0]
         return result
-    
-    def _handle_api_error(self, error, prompt, messages, response_format, cache, 
-                         retry_count, port, kwargs, use_loadbalance):
+
+    def _handle_api_error(
+        self,
+        error,
+        prompt,
+        messages,
+        response_format,
+        cache,
+        retry_count,
+        port,
+        kwargs,
+        use_loadbalance,
+    ):
         """Handle different types of API errors with appropriate retry logic."""
         import litellm
-        
+
         if isinstance(error, litellm.exceptions.ContextWindowExceededError):
             logger.error(f"Context window exceeded: {error}")
             raise error
-            
-        elif isinstance(error, (litellm.exceptions.APIError, litellm.exceptions.Timeout)):
+
+        elif isinstance(
+            error, (litellm.exceptions.APIError, litellm.exceptions.Timeout)
+        ):
             t = 3
             base_url = kwargs.get("base_url", self.base_url)
             if retry_count > 0 and isinstance(error, litellm.exceptions.APIError):
@@ -265,22 +293,24 @@ class OAI_LM:
                 use_loadbalance=use_loadbalance,
                 **kwargs,
             )
-            
+
         else:
             logger.error(f"Error: {error}")
             import traceback
+
             traceback.print_exc()
             raise error
-    
-    def _format_response(self, result, response_format, prompt, messages, cache, 
-                        retry_count, kwargs):
+
+    def _format_response(
+        self, result, response_format, prompt, messages, cache, retry_count, kwargs
+    ):
         """Format the response according to the specified response format."""
         import json_repair
-        
+
         try:
             return response_format(**json_repair.loads(result))
         except Exception as e:
-            # Try again if formatting fails
+            logger.warning(f"Failed to parse response: {e}, result: {result}")
             return self.__call__(
                 prompt=prompt,
                 messages=messages,
@@ -290,7 +320,13 @@ class OAI_LM:
                 error=e,
                 **kwargs,
             )
-    
+    @property
+    def last_think(self):
+        # just for fun
+        return (
+            self._dspy_lm.history[-1]["response"].choices[0].message.reasoning_content
+        )
+
     def clear_port_use(self):
         _clear_port_use(self.ports)
 
@@ -309,20 +345,6 @@ class OAI_LM:
     ) -> Any:
         raise DeprecationWarning(
             "OAI_LM.get_session is deprecated. Use LMAgent instead."
-        )
-        
-        if history is None:
-            history = []
-        else:
-            history = deepcopy(history)
-        from .chat_session import ChatSession
-        return ChatSession(
-            self,
-            system_prompt=system_prompt,
-            history=history,
-            callback=callback,
-            response_format=response_format,
-            **kwargs,
         )
 
     def dump_cache(self, id, result):
@@ -382,7 +404,7 @@ class OAI_LM:
             max_tokens=max_tokens,
             **kwargs,
         )
-    
+
     def inspect_history(self):
         """
         Inspect the history of the language model.
