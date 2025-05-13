@@ -147,7 +147,6 @@ def serve(
     eager: bool = False,
     chat_template: Optional[str] = None,
     lora_modules: Optional[List[str]] = None,
-    extra_args: Optional[List[str]] = None,  # Add extra_args parameter
     reasoning_parser: Optional[str] = None,
 ):
     """Main function to start or kill vLLM containers."""
@@ -229,8 +228,6 @@ def serve(
 
             cmd.extend(["--lora-modules", s])
         # add kwargs
-        if extra_args:
-            cmd.extend(extra_args)
         final_cmd = " ".join(cmd)
         log_file = f"/tmp/vllm_{port}.txt"
         final_cmd_with_log = f'"{final_cmd} 2>&1 | tee {log_file}"'
@@ -459,7 +456,6 @@ def main():
             args.eager,
             args.chat_template,
             args.lora_modules,
-            args.extra_args,  # Pass extra_args explicitly
             reasoning_parser=args.reasoning_parser,
         )
 
