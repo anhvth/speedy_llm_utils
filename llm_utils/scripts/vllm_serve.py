@@ -193,7 +193,7 @@ def serve(
             "--uvicorn-log-level critical",
         ]
         if reasoning_parser:
-            cmd += f"--enable-reasoning --reasoning-parser {reasoning_parser}"
+            cmd += [f"--enable-reasoning --reasoning-parser {reasoning_parser}"]
         if HF_HOME:
             # insert
             cmd.insert(0, f"HF_HOME={HF_HOME}")
