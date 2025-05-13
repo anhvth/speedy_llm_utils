@@ -1,3 +1,4 @@
+1/0
 """ "
 USAGE:
 Serve models and LoRAs with vLLM:
@@ -148,6 +149,7 @@ def serve(
     chat_template: Optional[str] = None,
     lora_modules: Optional[List[str]] = None,
     extra_args: Optional[List[str]] = None,  # Add extra_args parameter
+    reasoning_parser: Optional[str] = None,
 ):
     """Main function to start or kill vLLM containers."""
 
@@ -192,6 +194,8 @@ def serve(
             "--disable-log-requests",
             "--uvicorn-log-level critical",
         ]
+        if reasoning_parser:
+            cmd += f"--enable-reasoning --reasoning-parser {reasoning_parser}"
         if HF_HOME:
             # insert
             cmd.insert(0, f"HF_HOME={HF_HOME}")
@@ -314,6 +318,9 @@ def get_args():
         default=1,
         type=int,
         help="Number of pipeline parallel stages",
+    )
+    parser.add_argument(
+        "--reasoning_parser", default=None, type=str, help="Reasoning parser to use"
     )
     # parser.add_argument(
     #     "--extra_args",
@@ -454,6 +461,7 @@ def main():
             args.chat_template,
             args.lora_modules,
             args.extra_args,  # Pass extra_args explicitly
+            reasoning_parser=args.reasoning_parser,
         )
 
     elif args.mode == "kill":
