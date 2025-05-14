@@ -46,7 +46,7 @@ class OAI_LM:
 
     def __init__(
         self,
-        model: str = None,
+        model: Optional[str] = None,
         model_type: Literal["chat", "text"] = "chat",
         temperature: float = 0.0,
         max_tokens: int = 2048,
@@ -116,17 +116,19 @@ class OAI_LM:
 
     @property
     def last_message(self):
-        return self.history[-1]["response"].model_dump()["choices"][0]["message"]
+        return self._dspy_lm.history[-1]["response"].model_dump()["choices"][0][
+            "message"
+        ]
 
     def __call__(
         self,
         prompt=None,
         messages=None,
-        response_format: BaseModel = None,
+        response_format: Optional[type[BaseModel]] = None,
         cache=None,
         retry_count=0,
         port=None,
-        error=None,
+        error: Optional[Exception] = None,
         use_loadbalance=None,
         must_load_cache=False,
         max_tokens=None,
@@ -135,7 +137,7 @@ class OAI_LM:
     ) -> str | BaseModel:
         """Main method to call the language model."""
         # Check retry limit
-        if retry_count > num_retries:
+        if retry_count > num_retries and error:
             logger.error(f"Retry limit exceeded, error: {error}, {self.base_url=}")
             raise error
         if retry_count > 0:
@@ -308,7 +310,13 @@ class OAI_LM:
         import json_repair
 
         try:
-            return response_format(**json_repair.loads(result))
+            parsed_result = json_repair.loads(result)
+            # Ensure parsed_result is a dict with string keys
+            if not isinstance(parsed_result, dict):
+                raise ValueError(f"Expected dict, got {type(parsed_result)}")
+            # Convert any non-string keys to strings
+            parsed_dict = {str(k): v for k, v in parsed_result.items()}
+            return response_format(**parsed_dict)
         except Exception as e:
             logger.warning(f"Failed to parse response: {e}, result: {result}")
             return self.__call__(
@@ -320,6 +328,7 @@ class OAI_LM:
                 error=e,
                 **kwargs,
             )
+
     @property
     def last_think(self):
         # just for fun
@@ -331,21 +340,14 @@ class OAI_LM:
         _clear_port_use(self.ports)
 
     def get_least_used_port(self):
+        if not self.ports:
+
+            raise ValueError(
+                "No ports available for load balancing. Please provide a list of ports."
+            )
         least_used_port = _pick_least_used_port(self.ports)
         port = least_used_port
         return port
-
-    def get_session(
-        self,
-        system_prompt,
-        history: List[Message] = None,
-        callback=None,
-        response_format=None,
-        **kwargs,
-    ) -> Any:
-        raise DeprecationWarning(
-            "OAI_LM.get_session is deprecated. Use LMAgent instead."
-        )
 
     def dump_cache(self, id, result):
         try:
