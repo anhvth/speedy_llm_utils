@@ -15,7 +15,7 @@ import random
 import tempfile
 from copy import deepcopy
 import time
-from typing import Any, List, Literal, Optional, TypedDict
+from typing import Any, List, Literal, Optional, TypedDict, Dict
 
 
 import numpy as np
@@ -109,7 +109,7 @@ class OAI_LM:
             **kwargs,
         )
         # Store the kwargs for later use
-        self.kwargs = self._dspy_lm.kwargs
+        self.kwargs: Dict[str, Any] = self._dspy_lm.kwargs
         self.model = self._dspy_lm.model
 
         self.do_cache = cache
@@ -174,6 +174,8 @@ class OAI_LM:
             # Select a port for load balancing if needed
             api_port = self._select_port(port, use_loadbalance)
             if api_port:
+                # Avoid mutating a dictionary with strict type expectations
+                assert isinstance(kwargs, dict), "kwargs must be a dictionary"
                 kwargs["base_url"] = f"http://{self.host}:{api_port}/v1"
 
             # Make the actual API call with error handling
@@ -206,7 +208,10 @@ class OAI_LM:
             result = self._format_response(
                 result, response_format, prompt, messages, cache, retry_count, kwargs
             )
-
+            return result
+        assert isinstance(
+            result, str
+        ), f"Expected result to be a string, got {type(result)}"
         return result
 
     def _validate_response_format(self, response_format):
@@ -388,7 +393,7 @@ class OAI_LM:
         )
 
     @classmethod
-    def get_deepseek_chat(self, api_key=None, max_tokens=2000, **kwargs):
+    def get_deepseek_chat(cls, api_key=None, max_tokens=2000, **kwargs):
         return OAI_LM(
             base_url="https://api.deepseek.com/v1",
             model="deepseek-chat",
@@ -398,7 +403,7 @@ class OAI_LM:
         )
 
     @classmethod
-    def get_deepseek_reasoner(self, api_key=None, max_tokens=2000, **kwargs):
+    def get_deepseek_reasoner(cls, api_key=None, max_tokens=2000, **kwargs):
         return OAI_LM(
             base_url="https://api.deepseek.com/v1",
             model="deepseek-reasoner",
